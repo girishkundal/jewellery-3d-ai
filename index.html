@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Jewellery 3D Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Jost:wght@200;300;400;500&display=swap');
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8cc7a;
+    --gold-dark: #8a6f2e;
+    --cream: #f8f4ef;
+    --charcoal: #1a1a1a;
+    --muted: #6b6560;
+    --panel: #fdfaf6;
+    --border: #e0d8cc;
+    --rose: #d4847a;
+    --sapphire: #4a7ab5;
+    --emerald: #3d8b6e;
+    --diamond: #b8d4e8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Jost', sans-serif;
+    background: var(--cream);
+    color: var(--charcoal);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 48px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(248,244,239,0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: var(--charcoal);
+  }
+  .logo span { color: var(--gold); }
+
+  .badge {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    border: 1px solid var(--gold);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* ── LEFT PANEL ── */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 40px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    overflow-y: auto;
+  }
+
+  .panel-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+    font-weight: 300;
+    line-height: 1.3;
+    color: var(--charcoal);
+  }
+  .panel-title em { font-style: italic; color: var(--gold-dark); }
+
+  .panel-sub {
+    font-size: 0.78rem;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    line-height: 1.7;
+    margin-top: -24px;
+  }
+
+  /* Prompt area */
+  .prompt-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    padding: 14px 16px;
+    font-family: 'Jost', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: var(--charcoal);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+  textarea:focus { border-color: var(--gold); }
+
+  /* Selectors */
+  .selectors { display: flex; flex-direction: column; gap: 20px; }
+
+  .selector-group { display: flex; flex-direction: column; gap: 10px; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .chip {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'Jost', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--muted);
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .chip:hover { border-color: var(--gold); color: var(--gold-dark); }
+  .chip.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: white;
+    font-weight: 500;
+  }
+
+  /* Gem colour dots */
+  .gem-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .gem-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Generate button */
+  .gen-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--charcoal);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Jost', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .gen-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .gen-btn:hover::after { opacity: 1; }
+  .gen-btn span { position: relative; z-index: 1; }
+  .gen-btn:active { transform: scale(0.98); }
+
+  /* Metadata output */
+  .meta-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.4s ease;
+  }
+  .meta-card.visible { display: flex; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .meta-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--charcoal);
+  }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-row strong { color: var(--charcoal); font-weight: 500; }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .tag {
+    font-size: 0.68rem;
+    padding: 3px 10px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── RIGHT PANEL: 3D VIEWER ── */
+  .viewer-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 60% 40%, #f0ebe3 0%, #e8e0d4 60%, #ddd5c8 100%);
+    overflow: hidden;
+  }
+
+  .viewer-wrap::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  #canvas-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+  }
+
+  canvas { display: block; }
+
+  .viewer-label {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .placeholder-msg {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .placeholder-msg .icon {
+    font-size: 3rem;
+    opacity: 0.2;
+    margin-bottom: 12px;
+  }
+  .placeholder-msg p {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .placeholder-msg small {
+    font-size: 0.72rem;
+    color: var(--border);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-top: 8px;
+  }
+
+  #placeholder { transition: opacity 0.4s; }
+  #placeholder.hidden { opacity: 0; pointer-events: none; }
+
+  /* Controls hint */
+  .controls-hint {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.8;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .controls-hint.visible { opacity: 1; }
+
+  /* Loading spinner */
+  .spinner-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248,244,239,0.85);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .spinner-wrap.active { opacity: 1; pointer-events: all; }
+
+  .spinner {
+    width: 48px; height: 48px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .spinner-text {
+    margin-top: 16px;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .spinner-inner { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+  /* NLP output strip */
+  .nlp-strip {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.7rem;
+    line-height: 1.7;
+    color: var(--muted);
+    max-width: 220px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: all 0.4s;
+  }
+  .nlp-strip.visible { opacity: 1; transform: translateY(0); }
+  .nlp-strip strong { color: var(--gold-dark); display: block; margin-bottom: 4px; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Examples */
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .example-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: 'Jost', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    font-style: italic;
+  }
+  .example-btn:hover { border-color: var(--gold); color: var(--gold-dark); background: rgba(201,168,76,0.04); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">gem<span>.</span>ai</div>
+  <div class="badge">Text-to-3D Jewellery Generator</div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div>
+      <div class="panel-title">Design your <em>jewellery</em><br>in natural language</div>
+    </div>
+    <p class="panel-sub">Describe what you want. The NLP pipeline parses your intent and generates a real-time 3D preview. Drag the canvas to rotate.</p>
+
+    <!-- Prompt -->
+    <div class="prompt-area">
+      <label>Describe your piece</label>
+      <textarea id="prompt" placeholder="e.g. A delicate rose gold ring with a teardrop sapphire and tiny diamond accents around the band..."></textarea>
+    </div>
+
+    <!-- Quick examples -->
+    <div class="prompt-area">
+      <label>Quick examples</label>
+      <div class="examples">
+        <button class="example-btn" onclick="fillExample(0)">"A bold gold bangle with geometric engravings"</button>
+        <button class="example-btn" onclick="fillExample(1)">"Elegant silver drop earrings with emerald stones"</button>
+        <button class="example-btn" onclick="fillExample(2)">"A rose gold solitaire ring with a round diamond"</button>
+        <button class="example-btn" onclick="fillExample(3)">"A chunky platinum chain necklace with ruby pendant"</button>
+      </div>
+    </div>
+
+    <!-- Type -->
+    <div class="selectors">
+      <div class="selector-group">
+        <label>Jewellery type</label>
+        <div class="chip-row" id="type-chips">
+          <div class="chip active" data-group="type" data-val="ring">Ring</div>
+          <div class="chip" data-group="type" data-val="necklace">Necklace</div>
+          <div class="chip" data-group="type" data-val="earring">Earring</div>
+          <div class="chip" data-group="type" data-val="bangle">Bangle</div>
+          <div class="chip" data-group="type" data-val="pendant">Pendant</div>
+        </div>
+      </div>
+
+      <div class="selector-group">
+        <label>Metal</label>
+        <div class="chip-row" id="metal-chips">
+          <div class="chip active" data-group="metal" data-val="gold">Yellow Gold</div>
+          <div class="chip" data-group="metal" data-val="rose">Rose Gold</div>
+          <div class="chip" data-group="metal" data-val="silver">Silver</div>
+          <div class="chip" data-group="metal" data-val="platinum">Platinum</div>
+        </div>
+      </div>
+
+      <div class="selector-group">
+        <label>Gemstone</label>
+        <div class="chip-row" id="gem-chips">
+          <div class="chip active gem-chip" data-group="gem" data-val="none">None</div>
+          <div class="chip gem-chip" data-group="gem" data-val="diamond"><span class="gem-dot" style="background:#b8d4e8;border:1px solid #aaa"></span>Diamond</div>
+          <div class="chip gem-chip" data-group="gem" data-val="sapphire"><span class="gem-dot" style="background:#4a7ab5"></span>Sapphire</div>
+          <div class="chip gem-chip" data-group="gem" data-val="emerald"><span class="gem-dot" style="background:#3d8b6e"></span>Emerald</div>
+          <div class="chip gem-chip" data-group="gem" data-val="ruby"><span class="gem-dot" style="background:#c0392b"></span>Ruby</div>
+          <div class="chip gem-chip" data-group="gem" data-val="rose"><span class="gem-dot" style="background:#d4847a"></span>Rose Quartz</div>
+        </div>
+      </div>
+
+      <div class="selector-group">
+        <label>Style</label>
+        <div class="chip-row" id="style-chips">
+          <div class="chip active" data-group="style" data-val="classic">Classic</div>
+          <div class="chip" data-group="style" data-val="modern">Modern</div>
+          <div class="chip" data-group="style" data-val="vintage">Vintage</div>
+          <div class="chip" data-group="style" data-val="geometric">Geometric</div>
+          <div class="chip" data-group="style" data-val="minimalist">Minimalist</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="gen-btn" onclick="generate()"><span>✦ Generate 3D Preview</span></button>
+
+    <!-- Metadata card -->
+    <div class="meta-card" id="meta-card">
+      <div class="meta-title" id="meta-name">—</div>
+      <div class="meta-row"><span>Type</span><strong id="m-type">—</strong></div>
+      <div class="meta-row"><span>Metal</span><strong id="m-metal">—</strong></div>
+      <div class="meta-row"><span>Gemstone</span><strong id="m-gem">—</strong></div>
+      <div class="meta-row"><span>Style</span><strong id="m-style">—</strong></div>
+      <div class="meta-row"><span>Est. Weight</span><strong id="m-weight">—</strong></div>
+      <div class="meta-row"><span>Complexity</span><strong id="m-complexity">—</strong></div>
+      <div style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:4px">NLP-extracted keywords</div>
+      <div class="tag-list" id="m-tags"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: 3D VIEWER -->
+  <div class="viewer-wrap">
+    <div id="canvas-container"></div>
+
+    <div class="placeholder-msg" id="placeholder">
+      <div class="icon">💎</div>
+      <p>Your piece will appear here</p>
+      <small>Configure options and press Generate</small>
+    </div>
+
+    <div class="spinner-wrap" id="spinner">
+      <div class="spinner-inner">
+        <div class="spinner"></div>
+        <div class="spinner-text">Generating…</div>
+      </div>
+    </div>
+
+    <div class="nlp-strip" id="nlp-strip">
+      <strong>NLP Parse Output</strong>
+      <span id="nlp-text"></span>
+    </div>
+
+    <div class="controls-hint" id="controls-hint">
+      🖱 Drag to rotate<br>
+      🖱 Scroll to zoom<br>
+      🖱 Right-drag to pan
+    </div>
+
+    <div class="viewer-label" id="viewer-label"></div>
+  </div>
+</div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+const state = { type:'ring', metal:'gold', gem:'none', style:'classic' };
+
+const examples = [
+  { text:"A bold gold bangle with geometric engravings", type:'bangle', metal:'gold', gem:'none', style:'geometric' },
+  { text:"Elegant silver drop earrings with emerald stones", type:'earring', metal:'silver', gem:'emerald', style:'classic' },
+  { text:"A rose gold solitaire ring with a round diamond", type:'ring', metal:'rose', gem:'diamond', style:'minimalist' },
+  { text:"A chunky platinum chain necklace with ruby pendant", type:'necklace', metal:'platinum', gem:'ruby', style:'modern' },
+];
+
+function fillExample(i) {
+  const e = examples[i];
+  document.getElementById('prompt').value = e.text;
+  setChip('type', e.type);
+  setChip('metal', e.metal);
+  setChip('gem', e.gem);
+  setChip('style', e.style);
+}
+
+// ── Chips ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const g = chip.dataset.group;
+    document.querySelectorAll(`[data-group="${g}"]`).forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state[g] = chip.dataset.val;
+  });
+});
+
+function setChip(group, val) {
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(c => {
+    c.classList.toggle('active', c.dataset.val === val);
+  });
+  state[group] = val;
+}
+
+// ── Metal colours ─────────────────────────────────────────────────────────
+const METALS = {
+  gold:     { color: 0xc9a84c, roughness: 0.25, metalness: 0.95, emissive: 0x3a2800 },
+  rose:     { color: 0xc88b6a, roughness: 0.28, metalness: 0.92, emissive: 0x2a1008 },
+  silver:   { color: 0xd0d0d8, roughness: 0.18, metalness: 0.98, emissive: 0x080810 },
+  platinum: { color: 0xe0e0e8, roughness: 0.12, metalness: 1.00, emissive: 0x100010 },
+};
+
+const GEMS = {
+  none:     null,
+  diamond:  { color: 0xb8d4e8, opacity: 0.7, emissive: 0x102030 },
+  sapphire: { color: 0x2244aa, opacity: 0.85, emissive: 0x001030 },
+  emerald:  { color: 0x1a7a50, opacity: 0.85, emissive: 0x002010 },
+  ruby:     { color: 0xb01020, opacity: 0.85, emissive: 0x300005 },
+  rose:     { color: 0xd4847a, opacity: 0.75, emissive: 0x200808 },
+};
+
+// ── Three.js setup ────────────────────────────────────────────────────────
+let scene, camera, renderer, currentMesh = [], animId;
+let isDragging = false, prevMouse = {x:0,y:0};
+let rotX = 0.3, rotY = 0.5;
+let zoom = 1;
+let isPanning = false;
+let panOffset = { x: 0, y: 0 };
+
+function initThree() {
+  const container = document.getElementById('canvas-container');
+  scene = new THREE.Scene();
+  scene.background = null;
+
+  camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.01, 100);
+  camera.position.set(0, 0, 3);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.physicallyCorrectLights = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.6;
+  container.appendChild(renderer.domElement);
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0xfff8f0, 1.2);
+  scene.add(ambient);
+
+  const key = new THREE.DirectionalLight(0xfff0d8, 3);
+  key.position.set(3, 5, 3);
+  key.castShadow = true;
+  scene.add(key);
+
+  const fill = new THREE.DirectionalLight(0xd0e8ff, 1.2);
+  fill.position.set(-4, 2, -2);
+  scene.add(fill);
+
+  const rim = new THREE.DirectionalLight(0xffffff, 0.8);
+  rim.position.set(0, -3, -3);
+  scene.add(rim);
+
+  const point = new THREE.PointLight(0xffe0a0, 2, 10);
+  point.position.set(1, 2, 2);
+  scene.add(point);
+
+  // Mouse controls
+  const el = renderer.domElement;
+  el.addEventListener('mousedown', e => {
+    if (e.button === 2) { isPanning = true; }
+    else { isDragging = true; }
+    prevMouse = { x: e.clientX, y: e.clientY };
+  });
+  el.addEventListener('mousemove', e => {
+    const dx = e.clientX - prevMouse.x;
+    const dy = e.clientY - prevMouse.y;
+    if (isDragging) { rotY += dx * 0.012; rotX += dy * 0.012; }
+    if (isPanning) { panOffset.x += dx * 0.005; panOffset.y -= dy * 0.005; }
+    prevMouse = { x: e.clientX, y: e.clientY };
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+  el.addEventListener('wheel', e => { zoom = Math.max(0.3, Math.min(3, zoom + e.deltaY * 0.001)); });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+
+  window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  });
+
+  animate();
+}
+
+function animate() {
+  animId = requestAnimationFrame(animate);
+  if (currentMesh.length > 0) {
+    const group = currentMesh[0];
+    group.rotation.y = rotY;
+    group.rotation.x = rotX;
+    group.position.x = panOffset.x;
+    group.position.y = panOffset.y;
+    camera.position.z = 3 * zoom;
+  }
+  renderer.render(scene, camera);
+}
+
+// ── Geometry builders ─────────────────────────────────────────────────────
+
+function buildMetal(m) {
+  return new THREE.MeshStandardMaterial({
+    color: m.color,
+    roughness: m.roughness,
+    metalness: m.metalness,
+    emissive: m.emissive,
+    envMapIntensity: 1.5,
+  });
+}
+
+function buildGemMat(g) {
+  return new THREE.MeshPhysicalMaterial({
+    color: g.color,
+    transparent: true,
+    opacity: g.opacity,
+    roughness: 0.05,
+    metalness: 0.0,
+    transmission: 0.5,
+    thickness: 0.4,
+    emissive: g.emissive,
+    emissiveIntensity: 0.3,
+  });
+}
+
+function buildRing(metalDef, gemDef, styleName) {
+  const group = new THREE.Group();
+  const mat = buildMetal(metalDef);
+
+  // Band
+  const tubeR = styleName === 'minimalist' ? 0.04 : styleName === 'geometric' ? 0.07 : 0.055;
+  const band = new THREE.Mesh(
+    new THREE.TorusGeometry(0.5, tubeR, 32, 128),
+    mat
+  );
+  group.add(band);
+
+  // Style decorations
+  if (styleName === 'geometric' || styleName === 'vintage') {
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const knot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.025, 8, 8),
+        mat
+      );
+      knot.position.set(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5, 0);
+      group.add(knot);
+    }
+  }
+
+  if (styleName === 'modern') {
+    const inner = new THREE.Mesh(
+      new THREE.TorusGeometry(0.5, 0.025, 8, 128),
+      new THREE.MeshStandardMaterial({ color: metalDef.color, roughness: 0.05, metalness: 1 })
+    );
+    inner.scale.set(0.88, 0.88, 0.88);
+    group.add(inner);
+  }
+
+  // Setting prongs + gem
+  if (gemDef) {
+    // Prongs
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const prong = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.018, 0.22, 8),
+        mat
+      );
+      prong.position.set(Math.cos(angle) * 0.12, 0.1, Math.sin(angle) * 0.12);
+      group.add(prong);
+    }
+    // Setting base
+    const setting = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.12, 0.04, 16),
+      mat
+    );
+    setting.position.y = 0.02;
+    group.add(setting);
+    // Gem (octahedron = faceted gemstone)
+    const gem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.13, 1),
+      buildGemMat(gemDef)
+    );
+    gem.position.y = 0.18;
+    gem.rotation.y = Math.PI / 4;
+    group.add(gem);
+  }
+
+  return group;
+}
+
+function buildNecklace(metalDef, gemDef, styleName) {
+  const group = new THREE.Group();
+  const mat = buildMetal(metalDef);
+
+  // Chain links
+  const linkCount = styleName === 'modern' ? 18 : styleName === 'geometric' ? 14 : 22;
+  const radius = 0.8;
+  for (let i = 0; i < linkCount; i++) {
+    const angle = (i / linkCount) * Math.PI * 1.4 - Math.PI * 0.7;
+    const link = new THREE.Mesh(
+      new THREE.TorusGeometry(0.04, 0.012, 8, 24),
+      mat
+    );
+    link.position.set(Math.sin(angle) * radius, Math.cos(angle) * radius - 0.5, 0);
+    link.rotation.z = angle + Math.PI / 2;
+    if (i % 2 === 0) link.rotation.x = Math.PI / 2;
+    group.add(link);
+  }
+
+  // Pendant
+  if (gemDef) {
+    const pMat = buildGemMat(gemDef);
+    const pendant = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.18, 1),
+      pMat
+    );
+    pendant.position.set(0, -1.28, 0);
+    pendant.rotation.y = Math.PI / 4;
+    group.add(pendant);
+
+    const bale = new THREE.Mesh(
+      new THREE.TorusGeometry(0.06, 0.018, 8, 20),
+      mat
+    );
+    bale.position.set(0, -1.05, 0);
+    group.add(bale);
+  } else {
+    const pendant = new THREE.Mesh(
+      styleName === 'geometric'
+        ? new THREE.OctahedronGeometry(0.15, 0)
+        : new THREE.SphereGeometry(0.13, 16, 16),
+      mat
+    );
+    pendant.position.set(0, -1.28, 0);
+    group.add(pendant);
+  }
+
+  group.scale.set(0.7, 0.7, 0.7);
+  return group;
+}
+
+function buildEarring(metalDef, gemDef, styleName) {
+  const group = new THREE.Group();
+  const mat = buildMetal(metalDef);
+
+  [-0.4, 0.4].forEach((xOff, i) => {
+    const earGroup = new THREE.Group();
+
+    // Hook
+    const hook = new THREE.Mesh(
+      new THREE.TorusGeometry(0.12, 0.018, 8, 32, Math.PI * 1.3),
+      mat
+    );
+    hook.position.set(0, 0.12, 0);
+    earGroup.add(hook);
+
+    if (styleName === 'minimalist') {
+      // Simple drop
+      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), mat);
+      drop.position.y = -0.15;
+      earGroup.add(drop);
+    } else {
+      // Wire drop
+      const wire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.008, 0.008, 0.35, 8),
+        mat
+      );
+      wire.position.y = -0.175;
+      earGroup.add(wire);
+
+      if (gemDef) {
+        const gem = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.1, 1),
+          buildGemMat(gemDef)
+        );
+        gem.position.y = -0.42;
+        earGroup.add(gem);
+        // Tiny frame
+        const frame = new THREE.Mesh(
+          new THREE.TorusGeometry(0.1, 0.012, 8, 24),
+          mat
+        );
+        frame.position.y = -0.42;
+        earGroup.add(frame);
+      } else {
+        const tip = new THREE.Mesh(
+          new THREE.SphereGeometry(0.05, 12, 12),
+          mat
+        );
+        tip.position.y = -0.38;
+        earGroup.add(tip);
+      }
+    }
+
+    if (styleName === 'vintage') {
+      const filigree = new THREE.Mesh(
+        new THREE.TorusGeometry(0.07, 0.01, 6, 20),
+        mat
+      );
+      filigree.position.y = -0.25;
+      filigree.rotation.y = Math.PI / 3;
+      earGroup.add(filigree);
+    }
+
+    earGroup.position.x = xOff;
+    group.add(earGroup);
+  });
+
+  return group;
+}
+
+function buildBangle(metalDef, gemDef, styleName) {
+  const group = new THREE.Group();
+  const mat = buildMetal(metalDef);
+
+  const thickness = styleName === 'geometric' ? 0.12 : styleName === 'minimalist' ? 0.04 : 0.08;
+  const bangle = new THREE.Mesh(
+    new THREE.TorusGeometry(0.6, thickness, styleName === 'geometric' ? 6 : 32, 128),
+    mat
+  );
+  group.add(bangle);
+
+  if (styleName === 'geometric') {
+    // Angular ridges
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const ridge = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.06, 0.14),
+        mat
+      );
+      ridge.position.set(Math.cos(angle) * 0.6, Math.sin(angle) * 0.6, 0);
+      ridge.rotation.z = angle;
+      group.add(ridge);
+    }
+  }
+
+  if (styleName === 'vintage') {
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), mat);
+      dot.position.set(Math.cos(angle) * 0.6, Math.sin(angle) * 0.6, thickness + 0.01);
+      group.add(dot);
+    }
+  }
+
+  if (gemDef) {
+    for (let i = 0; i < 3; i++) {
+      const angle = (i / 3) * Math.PI * 2 + Math.PI / 6;
+      const gem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.06, 0),
+        buildGemMat(gemDef)
+      );
+      gem.position.set(Math.cos(angle) * 0.6, Math.sin(angle) * 0.6, thickness + 0.06);
+      group.add(gem);
+    }
+  }
+
+  return group;
+}
+
+function buildPendant(metalDef, gemDef, styleName) {
+  const group = new THREE.Group();
+  const mat = buildMetal(metalDef);
+
+  // Chain stub
+  const chain = new THREE.Mesh(
+    new THREE.TorusGeometry(0.06, 0.012, 8, 24),
+    mat
+  );
+  chain.position.y = 0.42;
+  group.add(chain);
+
+  const wire = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.008, 0.2, 8),
+    mat
+  );
+  wire.position.y = 0.28;
+  group.add(wire);
+
+  // Pendant body
+  let body;
+  if (styleName === 'geometric') {
+    body = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), mat);
+  } else if (styleName === 'modern') {
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.06), mat);
+  } else if (styleName === 'minimalist') {
+    body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 32), mat);
+  } else {
+    body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 24), mat);
+  }
+  body.position.y = 0.04;
+  group.add(body);
+
+  if (gemDef) {
+    const gem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.12, 1),
+      buildGemMat(gemDef)
+    );
+    gem.position.y = 0.04;
+    group.add(gem);
+  }
+
+  // Frame ring
+  const frame = new THREE.Mesh(
+    new THREE.TorusGeometry(0.22, 0.016, 8, 48),
+    mat
+  );
+  frame.position.y = 0.04;
+  frame.rotation.x = Math.PI / 2;
+  group.add(frame);
+
+  return group;
+}
+
+// ── NLP Parser ────────────────────────────────────────────────────────────
+function nlpParse(text) {
+  const lower = text.toLowerCase();
+  const keywords = [];
+
+  const typeMap = { ring:['ring','band','solitaire'], necklace:['necklace','chain','collar'], earring:['earring','ear','drop','stud','hoop'], bangle:['bangle','bracelet','cuff'], pendant:['pendant','charm'] };
+  const metalMap = { gold:['gold','golden'], rose:['rose gold','rose'], silver:['silver','sterling'], platinum:['platinum','white gold'] };
+  const gemMap   = { diamond:['diamond'], sapphire:['sapphire','blue'], emerald:['emerald','green'], ruby:['ruby','red'], rose:['rose quartz','pink'] };
+  const styleMap = { geometric:['geometric','angular','hexagonal'], vintage:['vintage','antique','art deco'], modern:['modern','contemporary','bold'], minimalist:['minimal','simple','dainty'], classic:['classic','elegant','traditional'] };
+
+  let detectedType = state.type;
+  for (const [k,v] of Object.entries(typeMap)) { if (v.some(w => lower.includes(w))) { detectedType=k; keywords.push(k); break; } }
+
+  let detectedMetal = state.metal;
+  for (const [k,v] of Object.entries(metalMap)) { if (v.some(w => lower.includes(w))) { detectedMetal=k; keywords.push(k.replace('_',' ')); break; } }
+
+  let detectedGem = state.gem;
+  for (const [k,v] of Object.entries(gemMap)) { if (v.some(w => lower.includes(w))) { detectedGem=k; keywords.push(k); break; } }
+
+  let detectedStyle = state.style;
+  for (const [k,v] of Object.entries(styleMap)) { if (v.some(w => lower.includes(w))) { detectedStyle=k; keywords.push(k); break; } }
+
+  const extras = ['delicate','intricate','engraved','filigree','pavé','halo','twisted','hammered','polished','matte'];
+  extras.forEach(w => { if (lower.includes(w)) keywords.push(w); });
+
+  return { detectedType, detectedMetal, detectedGem, detectedStyle, keywords };
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────
+function clearScene() {
+  currentMesh.forEach(m => scene.remove(m));
+  currentMesh = [];
+}
+
+function generate() {
+  const prompt = document.getElementById('prompt').value.trim();
+  let type = state.type, metal = state.metal, gem = state.gem, style = state.style;
+  let nlpKeywords = [];
+
+  if (prompt) {
+    const parsed = nlpParse(prompt);
+    type = parsed.detectedType;
+    metal = parsed.detectedMetal;
+    gem = parsed.detectedGem;
+    style = parsed.detectedStyle;
+    nlpKeywords = parsed.keywords;
+    // Sync chips
+    setChip('type', type);
+    setChip('metal', metal);
+    setChip('gem', gem);
+    setChip('style', style);
+  }
+
+  // Show spinner
+  document.getElementById('spinner').classList.add('active');
+
+  setTimeout(() => {
+    clearScene();
+
+    const metalDef = METALS[metal];
+    const gemDef = gem !== 'none' ? GEMS[gem] : null;
+
+    let group;
+    if (type === 'ring') group = buildRing(metalDef, gemDef, style);
+    else if (type === 'necklace') group = buildNecklace(metalDef, gemDef, style);
+    else if (type === 'earring') group = buildEarring(metalDef, gemDef, style);
+    else if (type === 'bangle') group = buildBangle(metalDef, gemDef, style);
+    else group = buildPendant(metalDef, gemDef, style);
+
+    scene.add(group);
+    currentMesh.push(group);
+
+    rotX = 0.25; rotY = 0.4; zoom = 1; panOffset = { x:0, y:0 };
+
+    // Update metadata
+    const metalLabels = { gold:'Yellow Gold 18K', rose:'Rose Gold 18K', silver:'Sterling Silver 925', platinum:'Platinum 950' };
+    const gemLabels = { none:'None', diamond:'Diamond', sapphire:'Blue Sapphire', emerald:'Green Emerald', ruby:'Ruby', rose:'Rose Quartz' };
+    const styleLabels = { classic:'Classic / Traditional', modern:'Modern / Bold', vintage:'Vintage / Art Deco', geometric:'Geometric / Angular', minimalist:'Minimalist / Dainty' };
+    const weights = { ring:'3.2 – 6.8g', necklace:'8.5 – 14g', earring:'1.8 – 3.2g (pair)', bangle:'18 – 32g', pendant:'4.5 – 9g' };
+    const complexity = nlpKeywords.length > 4 ? 'High' : nlpKeywords.length > 2 ? 'Medium' : 'Standard';
+    const typeLabels = { ring:'Ring', necklace:'Necklace', earring:'Drop Earrings', bangle:'Bangle', pendant:'Pendant' };
+
+    const nameMap = {
+      ring: { classic:'Classic Solitaire Band', modern:'Contemporary Statement Ring', vintage:'Art Deco Filigree Ring', geometric:'Geometric Edge Ring', minimalist:'Dainty Minimal Band' },
+      necklace: { classic:'Elegant Chain Necklace', modern:'Bold Pendant Necklace', vintage:'Victorian Drop Necklace', geometric:'Angular Chain Necklace', minimalist:'Delicate Strand Necklace' },
+      earring: { classic:'Classic Drop Earrings', modern:'Statement Drop Earrings', vintage:'Vintage Chandelier Earrings', geometric:'Geometric Drop Earrings', minimalist:'Minimalist Wire Earrings' },
+      bangle: { classic:'Classic Round Bangle', modern:'Modern Cuff Bangle', vintage:'Vintage Engraved Bangle', geometric:'Geometric Faceted Bangle', minimalist:'Slim Minimalist Bangle' },
+      pendant: { classic:'Classic Round Pendant', modern:'Modern Square Pendant', vintage:'Vintage Locket Pendant', geometric:'Geometric Faceted Pendant', minimalist:'Minimalist Disc Pendant' },
+    };
+
+    document.getElementById('meta-name').textContent = nameMap[type][style];
+    document.getElementById('m-type').textContent = typeLabels[type];
+    document.getElementById('m-metal').textContent = metalLabels[metal];
+    document.getElementById('m-gem').textContent = gemLabels[gem];
+    document.getElementById('m-style').textContent = styleLabels[style];
+    document.getElementById('m-weight').textContent = weights[type];
+    document.getElementById('m-complexity').textContent = complexity;
+
+    const tagList = document.getElementById('m-tags');
+    tagList.innerHTML = '';
+    const allTags = [type, metal, gem !== 'none' ? gem : null, style, ...nlpKeywords].filter(Boolean);
+    [...new Set(allTags)].forEach(t => {
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = t;
+      tagList.appendChild(tag);
+    });
+
+    document.getElementById('meta-card').classList.add('visible');
+
+    // NLP strip
+    if (nlpKeywords.length > 0) {
+      document.getElementById('nlp-text').textContent = `Detected: ${nlpKeywords.join(', ')}`;
+      document.getElementById('nlp-strip').classList.add('visible');
+    }
+
+    document.getElementById('viewer-label').textContent = nameMap[type][style] + ' · ' + metalLabels[metal];
+    document.getElementById('controls-hint').classList.add('visible');
+    document.getElementById('placeholder').classList.add('hidden');
+    document.getElementById('spinner').classList.remove('active');
+  }, 900);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+initThree();
+</script>
+</body>
+</html>

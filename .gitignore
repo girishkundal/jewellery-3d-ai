@@ -1,0 +1,26 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local files
+*.log
+local/
+
+# If you ever add a Python backend
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+
+# If you ever add Node
+node_modules/
+dist/
+build/
